@@ -2676,6 +2676,15 @@ function schemaToJSON(schema, models, modelsToIgnore, modelPropertyMacro) {
 
         output[name] = schemaToJSON(cProperty, models, modelsToIgnore, modelPropertyMacro);
       });
+      //support dictionary type
+      _.forEach(schema.additionalProperties, function (property, name) {
+          var cProperty = _.cloneDeep(property);
+
+          // Allow macro to set the default value
+          //cProperty.default = modelPropertyMacro(property);
+
+          output[name] = schemaToJSON(cProperty, models, modelsToIgnore, modelPropertyMacro);
+      });
     } else if (type === 'array') {
       output = [];
 
@@ -2747,6 +2756,7 @@ function schemaToHTML(name, schema, models, modelPropertyMacro) {
   var references = {};
   var seenModels = [];
   var inlineModels = 0;
+  var additionModels = [];
 
 
 
@@ -2769,6 +2779,29 @@ function schemaToHTML(name, schema, models, modelPropertyMacro) {
     });
     /* jshint ignore:end */
   }
+
+  for (var m in additionModels) {
+
+      processModel(additionModels[m].additionalProperties, "");
+
+      while (_.keys(references).length > 0) {
+          /* jshint ignore:start */
+          _.forEach(references, function (schema, name) {
+              var seenModel = _.indexOf(seenModels, name) > -1;
+
+              delete references[name];
+
+              if (!seenModel) {
+                  seenModels.push(name);
+
+                  html += '<br />' + processModel(schema, name);
+              }
+          });
+          /* jshint ignore:end */
+      }
+  }
+
+  additionModels = [];
 
   return html;
 
@@ -2793,6 +2826,48 @@ function schemaToHTML(name, schema, models, modelPropertyMacro) {
     return modelName;
   }
 
+  function primitiveToHTMLForDict(schema) {
+      var html = '<span class="propType">';
+      var type = schema.type || 'object';
+
+      if (schema.$ref) {
+          html += addReference(schema, Helpers.simpleRef(schema.$ref));
+      } else if (type === 'object') {
+          if (!_.isUndefined(schema.properties)) {
+              html += addReference(schema);
+          } else {
+              html += 'object';
+          }
+      } else if (type === 'array') {
+          html += 'Array[';
+
+          if (_.isArray(schema.items)) {
+              html += _.map(schema.items, addReference).join(',');
+          } else if (_.isPlainObject(schema.items)) {
+              if (_.isUndefined(schema.items.$ref)) {
+                  if (!_.isUndefined(schema.items.type) && _.indexOf(['array', 'object'], schema.items.type) === -1) {
+                      html += schema.items.type;
+                  } else {
+                      html += addReference(schema.items);
+                  }
+              } else {
+                  html += addReference(schema.items, Helpers.simpleRef(schema.items.$ref));
+              }
+          } else {
+              Helpers.log('Array type\'s \'items\' schema is not an array or an object, cannot process');
+              html += 'object';
+          }
+
+          html += ']';
+      } else {
+          html += schema.type;
+      }
+
+      html += '</span>';
+
+      return html;
+  }
+
   function primitiveToHTML(schema) {
     var html = '<span class="propType">';
     var type = schema.type || 'object';
@@ -2803,7 +2878,14 @@ function schemaToHTML(name, schema, models, modelPropertyMacro) {
       if (!_.isUndefined(schema.properties)) {
         html += addReference(schema);
       } else {
-        html += 'object';
+          if (!_.isUndefined(schema.additionalProperties)) {
+              html += "Dictionary(string,";
+              html += primitiveToHTMLForDict(schema.additionalProperties);
+              html += ")";
+          }
+          else {
+              html += 'object';
+          }
       }
     } else if (type === 'array') {
       html += 'Array[';
@@ -3005,6 +3087,10 @@ function schemaToHTML(name, schema, models, modelPropertyMacro) {
                 // Use referenced schema
                 cProperty = Helpers.resolveSchema(model.definition);
               }
+            }
+            //deal with additionalProperties
+            else if (!_.isUndefined(cProperty.additionalProperties)) {
+                additionModels.push(cProperty);
             }
 
             html += primitiveToHTML(cProperty);
