@@ -487,7 +487,7 @@ this["Handlebars"]["templates"]["operation"] = Handlebars.template({"1":function
   if (stack1 != null) { buffer += stack1; }
   stack1 = helpers['if'].call(depth0, (depth0 != null ? depth0.isReadOnly : depth0), {"name":"if","hash":{},"fn":this.program(22, data),"inverse":this.program(24, data),"data":data});
   if (stack1 != null) { buffer += stack1; }
-  buffer += "        </form>\n        <div class='response' style='display:none'>\n          <h4>Curl</h4>\n          <div class='block curl'></div>\n          <h4 data-sw-translate>Request URL</h4>\n          <div class='block request_url'></div>\n";
+  buffer += "        </form>\n        <div class='response' style='display:none'>\n          <h4>Curl</h4>\n          <div class='block curl'></div>\n          <h4 data-sw-translate>Request URL</h4>\n          <div class='block request_url'></div>\n          <h4>Request Body</h4>\n          <div class='block request_body'></div>\n";
   stack1 = helpers['if'].call(depth0, (depth0 != null ? depth0.showRequestHeaders : depth0), {"name":"if","hash":{},"fn":this.program(26, data),"inverse":this.noop,"data":data});
   if (stack1 != null) { buffer += stack1; }
   return buffer + "          <h4 data-sw-translate>Response Body</h4>\n          <div class='block response_body'></div>\n          <h4 data-sw-translate>Response Code</h4>\n          <div class='block response_code'></div>\n          <h4 data-sw-translate>Response Headers</h4>\n          <div class='block response_headers'></div>\n        </div>\n      </div>\n    </li>\n  </ul>\n";
@@ -756,9 +756,9 @@ this["Handlebars"]["templates"]["param"] = Handlebars.template({"1":function(dep
     + "</label></td>\n<td>\n\n";
   stack1 = helpers['if'].call(depth0, (depth0 != null ? depth0.isBody : depth0), {"name":"if","hash":{},"fn":this.program(1, data),"inverse":this.program(9, data),"data":data});
   if (stack1 != null) { buffer += stack1; }
-  buffer += "\n</td>\n<td class=\"markdown\">";
-  stack1 = ((helper = (helper = helpers.description || (depth0 != null ? depth0.description : depth0)) != null ? helper : helperMissing),(typeof helper === functionType ? helper.call(depth0, {"name":"description","hash":{},"data":data}) : helper));
-  if (stack1 != null) { buffer += stack1; }
+  //buffer += "\n</td>\n<td class=\"markdown\">";
+  //stack1 = ((helper = (helper = helpers.description || (depth0 != null ? depth0.description : depth0)) != null ? helper : helperMissing),(typeof helper === functionType ? helper.call(depth0, {"name":"description","hash":{},"data":data}) : helper));
+  //if (stack1 != null) { buffer += stack1; }
   buffer += "</td>\n<td>";
   stack1 = ((helper = (helper = helpers.paramType || (depth0 != null ? depth0.paramType : depth0)) != null ? helper : helperMissing),(typeof helper === functionType ? helper.call(depth0, {"name":"paramType","hash":{},"data":data}) : helper));
   if (stack1 != null) { buffer += stack1; }
@@ -4737,6 +4737,33 @@ Operation.prototype.encodeQueryParam = function (arg) {
  **/
 Operation.prototype.encodePathParam = function (pathParam) {
   return encodeURIComponent(pathParam);
+};
+
+Operation.prototype.getRequestBody = function (args) {
+    var opts = { mock: true };
+    var obj = this.execute(args, opts);
+
+    this.clientAuthorizations.apply(obj);
+
+    var pre = "";
+    if (obj.body) {
+        var body;
+
+        if (typeof obj.body === 'object') {
+            body = JSON.stringify(obj.body);
+        } else {
+            body = obj.body;
+        }
+
+        var code = $('<code />').text(body);
+        pre = $('<pre class="json" />').append(code);
+    }
+    else {
+        var code = $('<code />').text("no content");
+        pre = $('<pre class="json" />').append(code);
+    }
+
+    return pre;
 };
 
 },{"../helpers":4,"../http":5,"./model":9,"lodash-compat/lang/cloneDeep":141,"lodash-compat/lang/isEmpty":144,"lodash-compat/lang/isObject":147,"lodash-compat/lang/isUndefined":151}],11:[function(require,module,exports){
@@ -32000,6 +32027,8 @@ SwaggerUi.Views.OperationView = Backbone.View.extend({
     $('.response_hider', $(this.el)).show();
     $('.response_throbber', $(this.el)).hide();
 
+    var request_body = this.model.getRequestBody(this.map);
+    $('.request_body', $(this.el)).html(request_body);
 
     //adds curl output
     var curlCommand = this.model.asCurl(this.map);
